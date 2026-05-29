@@ -1,15 +1,16 @@
 import streamlit as st
 import pandas as pd
 import time
-from datetime import datetime, timedelta
 from supabase import create_client, Client
 
+# 웹페이지 UI 스타일 및 격자 설정 (사이드바 없이 넓게)
 st.set_page_config(
-    page_title="P2H 전세계 실시간 모니터링",
+    page_title="P2H 실시간 모니터링",
     page_icon="📊",
     layout="wide"
 )
 
+# 소스코드 보안 유지 (스트림릿 금고 사용)
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
@@ -40,22 +41,10 @@ if supabase:
             if data_rows and len(data_rows) > 0:
                 latest_data = data_rows[0]
                 
-                # 🛠️ [바뀜] 서버 현재 시각이 아닌, 실제 데이터가 생성된 시각(created_at)을 기반으로 한국 시간 보정
-                created_at_raw = latest_data.get('created_at', '') # 예: "2026-05-29T07:17:23" 또는 "2026-05-29 07:17:23"
-                
-                try:
-                    # Supabase 표준 ISO 포맷 혹은 일반 날짜 포맷 대응 파싱
-                    t_str = created_at_raw.replace('T', ' ').split('.')[0]
-                    db_time = datetime.strptime(t_str, "%Y-%m-%d %H:%M:%S")
-                    # 데이터 진짜 생성 시각에 한국 시차 9시간을 더함
-                    kst_time = db_time + timedelta(hours=9)
-                    current_time = kst_time.strftime("%H:%M:%S")
-                except Exception:
-                    # 예외 발생 시 안전장치로 가공 문자열 파싱 처리
-                    cleaned_time = created_at_raw.replace('T', ' ').split('.')[0]
-                    current_time = cleaned_time.split(" ")[-1] if " " in cleaned_time else cleaned_time
-                    if not current_time:
-                        current_time = time.strftime('%H:%M:%S')
+                # 🛠️ [바뀜] 서버 시계 연산 로직을 100% 완전 파기하고, 수신기가 직결해서 보내준 진짜 패킷 수신 시간(device_time) 채택
+                current_time = latest_data.get('device_time', '')
+                if not current_time:
+                    current_time = time.strftime('%H:%M:%S')
                 
                 # dashboard_pos.container() 안쪽 영역만 실시간으로 갈아끼움
                 with dashboard_pos.container():
@@ -78,8 +67,8 @@ if supabase:
                         st.subheader(f"• 축열유량 : `{latest_data.get('flow_acc', 0.0):.2f}`")
                         st.subheader(f"• 급수유량 : `{latest_data.get('flow_supply', 0.0):.2f}`")
                         st.write("")
-                        # 🛠️ [바뀜] 실제 데이터가 들어온 한국 시각임을 명시하도록 캡션 수정
-                        st.caption(f"🕒 실제 데이터 인입 시간(KST): `{current_time}`") 
+                        # 🛠️ [바뀜] 매칭 문구 조정 (진짜 패킷 수신 시각 출력)
+                        st.caption(f"🕒 실제 패킷 수신 시간: `{current_time}`") 
                         
                     with v_col2:
                         st.markdown("### 🌡️ 히트펌프 및 외부 온도")
