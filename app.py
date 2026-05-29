@@ -1,12 +1,11 @@
 import streamlit as st
 import pandas as pd
 import time
-from datetime import datetime, timedelta # 🛠️ [바뀜] 시차 계산을 위해 datetime 모듈 유지
 from supabase import create_client, Client
 
 # 웹페이지 UI 스타일 및 격자 설정 (사이드바 없이 넓게)
 st.set_page_config(
-    page_title="P2H 실시간 모니터링",
+    page_title="P2H 전세계 실시간 모니터링",
     page_icon="📊",
     layout="wide"
 )
@@ -42,25 +41,20 @@ if supabase:
             if data_rows and len(data_rows) > 0:
                 latest_data = data_rows[0]
                 
-                # 🛠️ [바뀜] 수신기가 보낸 device_time 추출 및 9시간 시차 강제 동기화 보정
+                # 🛠️ [바뀜] 데이터베이스에 문자열로 찍힌 날짜+시각 데이터에서 시차 왜곡 없이 실제 수신 시간만 슬라이싱 추출
                 raw_time = latest_data.get('device_time', '')
                 
                 try:
-                    # '07:24:50' 형태로 들어오는 시각에 9시간을 강제로 더해서 로컬 시간화 함
-                    if raw_time and ":" in raw_time and "-" not in raw_time:
-                        h, m, s = map(int, raw_time.split(":"))
-                        # 9시간을 더한 뒤 24시간 체계로 롤오버 처리
-                        h = (h + 9) % 24
-                        current_time = f"{h:02d}:{m:02d}:{s:02d}"
+                    if raw_time and " " in raw_time:
+                        # "2026-05-29 16:28:34" 구조에서 공백 뒤의 시간만 칼같이 추출
+                        current_time = raw_time.split(" ")[-1]
+                    elif raw_time and "T" in raw_time:
+                        # ISO 포맷 대응 슬라이싱
+                        current_time = raw_time.split("T")[-1].split(".")[0]
                     else:
-                        # 포맷이 날짜 형태(ISO)일 경우 기존의 timedelta 연산 수행
-                        t_str = raw_time.replace('T', ' ').split('.')[0]
-                        db_time = datetime.strptime(t_str, "%Y-%m-%d %H:%M:%S")
-                        kst_time = db_time + timedelta(hours=9)
-                        current_time = kst_time.strftime("%H:%M:%S")
+                        current_time = raw_time if raw_time else time.strftime('%H:%M:%S')
                 except Exception:
-                    # 예외 발생 시 문자열 그대로 매핑하거나 기본 시스템 시각 사용
-                    current_time = raw_time if raw_time else time.strftime('%H:%M:%S')
+                    current_time = time.strftime('%H:%M:%S')
                 
                 # dashboard_pos.container() 안쪽 영역만 실시간으로 갈아끼움
                 with dashboard_pos.container():
