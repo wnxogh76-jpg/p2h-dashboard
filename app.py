@@ -24,8 +24,8 @@ except Exception as e:
     st.error(f"❌ 클라우드 서버 연동 초기화 실패: {e}")
     supabase = None
 
-st.title("📡 P2H 설비 전세계 실시간 계측 수치 관제탑")
-st.caption("연구실 방화벽을 우회하여 클라우드 서버로부터 데이터를 연동하므로 전 세계 어디서나 실시간 접속을 지원합니다. (3초 주기 자동 동기화)")
+st.title("📡 P2H 설비 실시간 계측 관제탑")
+st.caption("(3초 주기 자동 동기화)")
 st.markdown("---")
 
 # 실시간 대시보드 렌더링을 위한 전용 공간 선언
