@@ -1,17 +1,15 @@
 import streamlit as st
 import pandas as pd
 import time
-from datetime import datetime, timedelta  # 🛠️ [바뀜] 시차 계산을 위해 datetime 불러오기
+from datetime import datetime, timedelta
 from supabase import create_client, Client
 
-# 웹페이지 UI 스타일 및 격자 설정 (사이드바 없이 넓게)
 st.set_page_config(
     page_title="P2H 전세계 실시간 모니터링",
     page_icon="📊",
     layout="wide"
 )
 
-# 소스코드 보안 유지 (스트림릿 금고 사용)
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
@@ -25,8 +23,8 @@ except Exception as e:
     st.error(f"❌ 클라우드 서버 연동 초기화 실패: {e}")
     supabase = None
 
-st.title("📡 P2H 실시간 계측 수치 관제탑")
-st.caption(" (3초 주기 자동 동기화)")
+st.title("📡 P2H 설비 실시간 수치 계측 시스템")
+st.caption("(3초 주기 자동 동기화)")
 st.markdown("---")
 
 # 전체 화면을 지우지 않고 내부 수치만 스무스하게 덮어쓰기 위해 최상단 컨테이너 공간 선언
@@ -42,17 +40,20 @@ if supabase:
             if data_rows and len(data_rows) > 0:
                 latest_data = data_rows[0]
                 
-                # 🛠️ [바뀜] Supabase의 세계 표준시(UTC) 문자열을 파이썬 시간 객체로 변환한 뒤 한국 시간(+9시간)으로 보정
-                created_at_raw = latest_data.get('created_at', '')
+                # 🛠️ [바뀜] 서버 현재 시각이 아닌, 실제 데이터가 생성된 시각(created_at)을 기반으로 한국 시간 보정
+                created_at_raw = latest_data.get('created_at', '') # 예: "2026-05-29T07:17:23" 또는 "2026-05-29 07:17:23"
+                
                 try:
-                    # '2026-05-29 01:49:23' 형태의 문자열을 파싱
-                    utc_time = datetime.strptime(created_at_raw, "%Y-%m-%d %H:%M:%S")
-                    # 한국 시차인 9시간을 강제로 더해줌
-                    kst_time = utc_time + timedelta(hours=9)
+                    # Supabase 표준 ISO 포맷 혹은 일반 날짜 포맷 대응 파싱
+                    t_str = created_at_raw.replace('T', ' ').split('.')[0]
+                    db_time = datetime.strptime(t_str, "%Y-%m-%d %H:%M:%S")
+                    # 데이터 진짜 생성 시각에 한국 시차 9시간을 더함
+                    kst_time = db_time + timedelta(hours=9)
                     current_time = kst_time.strftime("%H:%M:%S")
                 except Exception:
-                    # 만약 날짜 포맷이 다르거나 파싱 실패 시, 문자열 슬라이싱 대안 혹은 현재 시스템 시간 사용
-                    current_time = created_at_raw.split(" ")[-1] if " " in created_at_raw else created_at_raw
+                    # 예외 발생 시 안전장치로 가공 문자열 파싱 처리
+                    cleaned_time = created_at_raw.replace('T', ' ').split('.')[0]
+                    current_time = cleaned_time.split(" ")[-1] if " " in cleaned_time else cleaned_time
                     if not current_time:
                         current_time = time.strftime('%H:%M:%S')
                 
@@ -77,7 +78,8 @@ if supabase:
                         st.subheader(f"• 축열유량 : `{latest_data.get('flow_acc', 0.0):.2f}`")
                         st.subheader(f"• 급수유량 : `{latest_data.get('flow_supply', 0.0):.2f}`")
                         st.write("")
-                        st.caption(f"🕒 최종 클라우드 동기화 시간(KST): `{current_time}`") # 🛠️ [바뀜] 표시 문구 조정
+                        # 🛠️ [바뀜] 실제 데이터가 들어온 한국 시각임을 명시하도록 캡션 수정
+                        st.caption(f"🕒 실제 데이터 인입 시간(KST): `{current_time}`") 
                         
                     with v_col2:
                         st.markdown("### 🌡️ 히트펌프 및 외부 온도")
