@@ -3,16 +3,16 @@ import pandas as pd
 import time
 from supabase import create_client, Client
 
-# 웹페이지 UI 스타일 및 격자 설정 (넓은 화면 모드)
+# 웹페이지 UI 스타일 및 격자 설정 (사이드바 없이 넓게)
 st.set_page_config(
     page_title="P2H 전세계 실시간 모니터링",
     page_icon="📊",
     layout="wide"
 )
 
-# ⚠️ 사용님의 Supabase 고유 주소와 키를 여기에 정확히 붙여넣으세요!
-SUPABASE_URL = "https://xcplxbselajptcxdqino.supabase.co"
-SUPABASE_KEY = "sb_publishable_j-ECpjbfSrRxr7-9c1tAVw_0frhKKy_"
+# 🔒 [바뀜] 소스코드에서 실제 주소와 키를 완전히 지우고, 스트림릿 시스템 금고(secrets)에서 안전하게 불러옵니다.
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
 @st.cache_resource
 def init_supabase():
@@ -35,8 +35,8 @@ dashboard_pos = st.empty()
 if supabase:
     while True:
         try:
-            # 클라우드 DB의 맨 위 최신 행 1개만 원격으로 빠르게 조회
-            response = supabase.table("p2h_monitoring").select("*").order("id", ascending=False).limit(1).execute()
+            # 최신 버전의 supabase-py 문법에 맞춰 id 역순 정렬로 1개 조회
+            response = supabase.table("p2h_monitoring").select("*").order("id", desc=True).limit(1).execute()
             data_rows = response.data
             
             if data_rows and len(data_rows) > 0:
@@ -60,7 +60,7 @@ if supabase:
                     
                     st.markdown("---")
                     
-                    # 🔴 섹션 2: 요청하신 모든 온도/유량 순시값을 가독성 좋게 3열 그리드로 배치
+                    # 🔴 섹션 2: 모든 온도/유량 순시값을 가독성 좋게 3열 그리드로 배치
                     v_col1, v_col2, v_col3 = st.columns(3)
                     
                     with v_col1:
@@ -92,16 +92,13 @@ if supabase:
                             
                     st.markdown("---")
             else:
-                # 🟡 클라우드에 아직 데이터가 쌓이지 않았을 때 안내 메시지 표출 (멈춤 방지)
                 with dashboard_pos.container():
                     st.info("⏳ 현재 클라우드 데이터베이스 장부가 비어있거나 수신 대기 중입니다.")
-                    st.warning("사무실 PC에서 `run_serial_git.py` 수신기를 구동하여 실시간 패킷을 클라우드로 쏴주시면 수치판이 즉시 활성화됩니다.")
-                    st.caption(f"🔄 클라우드 연결 상태 확인 완료 - 최종 스캔 시간: {time.strftime('%H:%M:%S')}")
+                    st.warning("사무실 PC에서 수신기를 구동하여 실시간 패킷을 클라우드로 쏴주시면 수치판이 즉시 활성화됩니다.")
         except Exception as err:
             with dashboard_pos.container():
                 st.error(f"⚠️ 데이터 연동 중 오류 발생: {err}")
             
-        # 3초 주기로 화면 강제 갱신 트리거 및 클라우드 재조회
         time.sleep(3)
         st.rerun()
 else:
